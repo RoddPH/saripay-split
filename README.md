@@ -1,138 +1,159 @@
-# SariPay Split
+# PlayerGuild
 
-Digitizing sari-sari store *utang* with transparent, on-chain tracking.
+> A blockchain-powered quest board where gamers post and complete paid gigs — built on Stellar.
 
----
-
-## 🧩 Problem
-
-A sari-sari store owner in the Philippines records customer debts (*utang*) in a notebook, often losing ₱500–₱2,000 per month due to forgotten entries, disputes, or unpaid balances.
+**Live Demo:** https://player-guild.vercel.app
 
 ---
 
-## 💡 Solution
+## Problem
 
-SariPay Split uses Soroban smart contracts on the Stellar network to record debts and repayments transparently.
-Store owners add debt entries, and customers repay using digital payments, with balances updated instantly and verifiable on-chain.
+A Filipino mobile gamer who earns real money through play-to-earn titles cannot safely hire another player to complete a dungeon run or grind session — there is no trusted escrow between strangers, so either the giver pays upfront and gets nothing, or the hunter works and never receives payment.
 
----
+## Solution
 
-## ⚙️ MVP Flow (Demo in <2 minutes)
-
-1. Store owner adds ₱100 debt for a customer
-2. Customer repays ₱40
-3. Contract updates balance to ₱60
-4. Anyone can query and verify the remaining debt
+PlayerGuild lets quest givers lock XLM rewards in a Soroban smart contract escrow; a hunter claims the quest, completes the work, and the giver releases payment on-chain — all settled in seconds with near-zero fees, using Stellar's fast finality and composable asset model.
 
 ---
 
-## ⏱️ Timeline
+## Timeline
 
-* Day 1: Smart contract (debt + repayment logic)
-* Day 2: Testing + basic frontend (input + display)
-* Day 3: Demo polish + pitch
-
----
-
-## 🌐 Stellar Features Used
-
-* Soroban Smart Contracts – for debt tracking logic
-* USDC (planned integration) – for real payments
-* Low fees & fast finality – ideal for microtransactions
+| Phase | Milestone |
+|-------|-----------|
+| Week 1 | Smart contract + testnet deployment |
+| Week 2 | React web UI + Freighter wallet integration |
+| Week 3 | Anchor integration (GCash / Maya off-ramp) |
+| Week 4 | Hackathon demo + pilot with 50 gamers |
 
 ---
 
-## 🎯 Vision & Purpose
+## Stellar Features Used
 
-SariPay Split aims to modernize informal micro-credit systems used by millions of small stores in Southeast Asia by making them transparent, tamper-proof, and digitally verifiable.
-
----
-
-## 🛠️ Prerequisites
-
-* Rust (latest stable)
-* Soroban CLI (v20+)
-* Cargo
+- **XLM transfers** — quest rewards locked and released via native asset
+- **Soroban smart contracts** — escrow logic, quest lifecycle state machine
+- **Trustlines** — optional USDC support for stablecoin rewards
+- **Built-in DEX** — hunters can swap XLM rewards to USDC or PHP-pegged tokens instantly
 
 ---
 
-## 🔨 Build
+## Vision and Purpose
+
+Gaming economies in Southeast Asia generate billions of dollars of informal labour. PlayerGuild formalises this market by giving every gamer a trustless, instant, low-cost way to transact — bridging the gap between the unbanked gig economy and decentralised finance.
+
+---
+
+## Prerequisites
+
+- Rust `>=1.74` with `wasm32-unknown-unknown` target
+- Soroban CLI `>=21.0.0`
+- Node.js `>=18` (for front-end)
 
 ```bash
-soroban contract build
+rustup target add wasm32-unknown-unknown
+cargo install --locked soroban-cli@21.0.0
 ```
 
 ---
 
-## 🧪 Test
+## Build
+
+```bash
+soroban contract build
+# Output: target/wasm32-unknown-unknown/release/player_guild.wasm
+```
+
+---
+
+## Test
 
 ```bash
 cargo test
 ```
 
+All 5 tests should pass:
+- `test_full_quest_lifecycle` — happy path end-to-end
+- `test_giver_cannot_claim_own_quest` — edge case guard
+- `test_storage_state_after_post` — state verification
+- `test_cancel_open_quest` — cancel flow
+- `test_cannot_claim_cancelled_quest` — edge case guard
+
 ---
 
-## 🚀 Deploy (Testnet)
+## Deploy to Testnet
 
 ```bash
+# Configure testnet identity
+soroban keys generate --global player_guild_dev --network testnet
+
+# Fund account
+soroban keys fund player_guild_dev --network testnet
+
+# Deploy contract
 soroban contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/sari_pay_split.wasm \
-  --source <YOUR_IDENTITY> \
+  --wasm target/wasm32-unknown-unknown/release/player_guild.wasm \
+  --source player_guild_dev \
   --network testnet
+# Returns: CONTRACT_ID
 ```
 
 ---
 
-## ▶️ Sample Invocation (MVP)
+## Sample CLI Invocations
 
-### Add Debt
+### Post a quest (5 XLM reward)
 
 ```bash
 soroban contract invoke \
-  --id <CONTRACT_ID> \
-  --fn add_debt \
-  --arg <STORE_ADDRESS> \
-  --arg <CUSTOMER_ADDRESS> \
-  --arg 100
+  --id CONTRACT_ID \
+  --source player_guild_dev \
+  --network testnet \
+  -- post_quest \
+  --giver GIVER_ADDRESS \
+  --title "Defeat the Dragon Boss in Ragnarok M" \
+  --reward_xlm 50000000
+# Returns quest_id: 1
 ```
 
-### Repay Debt
+### Claim the quest
 
 ```bash
 soroban contract invoke \
-  --id <CONTRACT_ID> \
-  --fn repay \
-  --arg <CUSTOMER_ADDRESS> \
-  --arg <STORE_ADDRESS> \
-  --arg 40
+  --id CONTRACT_ID \
+  --source hunter_dev \
+  --network testnet \
+  -- claim_quest \
+  --hunter HUNTER_ADDRESS \
+  --quest_id 1
 ```
 
-### Check Balance
+### Approve and settle
 
 ```bash
 soroban contract invoke \
-  --id <CONTRACT_ID> \
-  --fn get_balance \
-  --arg <CUSTOMER_ADDRESS> \
-  --arg <STORE_ADDRESS>
+  --id CONTRACT_ID \
+  --source player_guild_dev \
+  --network testnet \
+  -- complete_quest \
+  --giver GIVER_ADDRESS \
+  --quest_id 1
+```
+
+### Read quest state
+
+```bash
+soroban contract invoke \
+  --id CONTRACT_ID \
+  --network testnet \
+  -- get_quest \
+  --quest_id 1
 ```
 
 ---
 
-## 🔮 Future Improvements
+## License
 
-* USDC token integration for real payments
-* Mobile-first frontend for sari-sari stores
-* QR code payments
-* Offline transaction support (queued sync)
+MIT © 2025 PlayerGuild Contributors\
 
----
-
-## 📄 License
-
-MIT License
-
-##CONTRACT
-
-https://stellar.expert/explorer/testnet/tx/4547a8eecf5e0284eac1cd03485c2c62422d279ea3b1cdb7fb5ab185abefb0d3
-https://lab.stellar.org/r/testnet/contract/CBAASVNSDMPGKT67VO7BQU3CPJUWAKWLDTQWEYNEH6URYYRQ5DDLDYTH
+## contract
+https://stellar.expert/explorer/testnet/tx/a58c33e3a40ce91892968409d6fee8c2245f7a85dbf0e33211aaaba0b95a2b34
+https://lab.stellar.org/r/testnet/contract/CDIJG6MKABPATFQSGJDTN3WR7E7A6KFJNLSBWFME56IKINGV32D4L7EL
